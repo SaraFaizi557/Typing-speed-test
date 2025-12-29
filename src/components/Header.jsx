@@ -12,7 +12,8 @@ const Header = ({
   mode,
   isRunning,
   wpm,
-  accuracy
+  accuracy,
+  personalBest
 }) => {
   const [openMenu2, setOpenMenu2] = useState(false);
   const [menu1SelectedItem, setMenu1SelectedItem] = useState("Easy");
@@ -36,6 +37,19 @@ const Header = ({
   const handleMenu2ItemClick = (title) => {
     setMenu2SelectedItem(title);
   };
+
+  const accuracyClass =
+    accuracy >= 100
+      ? "text-(--Neutral-0)"
+      : accuracy >= 90
+      ? "text-(--Yellow-400)"
+      : "text-(--Red-500)";
+
+  const timeClass = !isRunning
+    ? "text-(--Neutral-0)"
+    : mode === "timed" && timeLeft <= 10
+    ? "text-(--Red-500)" 
+    : "text-(--Yellow-400)"
 
   return (
     <div
@@ -66,7 +80,7 @@ const Header = ({
             Best:
             <span className="text-[1rem] text-(--Neutral-0) font-light">
               {" "}
-              92 WPM
+              {personalBest == null ? "--" : personalBest} WPM
             </span>
           </p>
 
@@ -74,7 +88,7 @@ const Header = ({
             Personal best:
             <span className="text-[1rem] text-(--Neutral-0) font-light">
               {" "}
-              92 WPM
+              {personalBest == null ? "--" : personalBest} WPM
             </span>
           </p>
         </div>
@@ -92,13 +106,19 @@ const Header = ({
               <p className="text-md sm:text-lg font-normal text-(--Neutral-400)">
                 Accuracy:
               </p>
-              <h3 className="text-2xl font-bold text-(--Neutral-0)">{accuracy}%</h3>
+              <h3
+                className={`text-2xl font-bold text-(--Neutral-0) ${accuracyClass}`}
+              >
+                {accuracy}%
+              </h3>
             </div>
             <div className="flex flex-col sm:flex-row sm:gap-2.5 items-center sm:pl-5 lg:pl-4">
               <p className="text-md sm:text-lg font-normal text-(--Neutral-400)">
                 Time:
               </p>
-              <h3 className="text-2xl font-bold text-(--Neutral-0)">
+              <h3
+                className={`text-2xl font-bold text-(--Neutral-0) ${timeClass}`}
+              >
                 {display}
               </h3>
             </div>
@@ -229,7 +249,7 @@ const Header = ({
                       <div
                         key={id}
                         onClick={() => {
-                          handleMenu2ItemClick(title)
+                          handleMenu2ItemClick(title);
                           changeMode(value);
                         }}
                         className={`cursor-pointer flex items-center px-2 sm:px-4 pb-1.5 pt-2 ${

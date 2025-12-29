@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Blur, Header, Main, TestComplete } from "./components";
+import { Blur, Header, Main, ResultScreen } from "./components";
 import { easyText, hardText, mediumText } from "./constant";
 
+const PB_KEY = "typing_pb_wpm";
 const TEST_DURATION = 60;
 const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)].text;
 const getPool = (d) =>
@@ -16,19 +17,27 @@ const App = () => {
   const [testComplete, setTestComplete] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState(false);
+  const [finalWpm, setFinalWpm] = useState(0);
+  const [resultVariant, setResultVariant] = useState("complete");
+  const [personalBest, setPersonalBest] = useState(null);
 
   const [mode, setMode] = useState("timed");
   const [passageTimeLeft, setPassageTimeLeft] = useState(
     mode === "timed" ? 60 : 0
   );
 
-  // elapsed seconds
+  useEffect(() => {
+  const raw = localStorage.getItem(PB_KEY);
+  const n = raw ? Number(raw) : null;
+  setPersonalBest(Number.isFinite(n) ? n : null);
+}, []);
+
+
   const elapsedSec =
     mode === "timed"
-      ? Math.max(0, TEST_DURATION - passageTimeLeft) // countdown -> elapsed
-      : passageTimeLeft; // passage -> already count-up
+      ? Math.max(0, TEST_DURATION - passageTimeLeft)
+      : passageTimeLeft;
 
-  // correct / incorrect chars
   const correctChars = (() => {
     let c = 0;
     const n = Math.min(typed.length, passage.length);
@@ -39,9 +48,9 @@ const App = () => {
   const totalTyped = typed.length;
   const incorrectChars = Math.max(0, totalTyped - correctChars);
 
-  const accuracy = totalTyped === 0 ? 100 : +(((correctChars / totalTyped) * 100).toFixed(1));
+  const accuracy =
+    totalTyped === 0 ? 100 : +((correctChars / totalTyped) * 100).toFixed(1);
 
-  // WPM (standard: 5 chars = 1 word)
   const wpm =
     elapsedSec < 1 ? 0 : Math.round(totalTyped / 5 / (elapsedSec / 60));
 
@@ -61,16 +70,37 @@ const App = () => {
   useEffect(() => {
     if (!isRunning) return;
 
-    if (mode === "timed" && passageTimeLeft === 0) {
-      setIsRunning(false);
-      setTestComplete(true);
+    const finishedTimed = mode === "timed" && passageTimeLeft === 0;
+    const finishedPassage =
+      mode === "passage" && typed.length >= passage.length;
+
+    if (!finishedTimed && !finishedPassage) return;
+
+    const oldPB = personalBest;
+    const fwpm = wpm;
+
+    const v =
+      oldPB == null ? "baseline" : fwpm > oldPB ? "highscore" : "complete";
+
+    setFinalWpm(fwpm);
+    setResultVariant(v);
+
+    if (oldPB == null || fwpm > oldPB) {
+      localStorage.setItem(PB_KEY, String(fwpm));
+      setPersonalBest(fwpm);
     }
 
-    if (mode === "passage" && typed.length >= passage.length) {
-      setIsRunning(false);
-      setTestComplete(true);
-    }
-  }, [passageTimeLeft, mode, typed, passage, isRunning]);
+    setIsRunning(false);
+    setTestComplete(true);
+  }, [
+    passageTimeLeft,
+    mode,
+    typed.length,
+    passage.length,
+    isRunning,
+    wpm,
+    personalBest,
+  ]);
 
   const inputRef = useRef(null);
 
@@ -89,7 +119,10 @@ const App = () => {
   const startTest = () => {
     setIsBlur(false);
     focusTyping();
-    setPassageTimeLeft(mode === "timed" ? 60 : 0);
+
+    setTyped("");
+    setTestComplete(false);
+    setPassageTimeLeft(mode === "timed" ? TEST_DURATION : 0);
     setIsRunning(false);
   };
 
@@ -105,12 +138,17 @@ const App = () => {
 
   const changeDifficulty = (d) => {
     if (isRunning) return;
+
     setDifficulty(d);
     setPassage(pickRandom(getPool(d)));
     setTyped("");
     setTestComplete(false);
+    setIsRunning(false);
+    setIsButtonDisabled(false);
+
     setPassageTimeLeft(mode === "timed" ? 60 : 0);
-    focusTyping();
+
+    if (!isBlur) focusTyping();
   };
 
   const changeMode = (m) => {
@@ -131,6 +169,9 @@ const App = () => {
   return (
     <main className="blur-effect p-4 sm:px-6 sm:py-7 md:px-15 md:py-8 lg:px-25 overflow-hidden">
       <Header
+        personalBest={personalBest}
+        resultVariant={resultVariant}
+        finalWpm={finalWpm}
         mode={mode}
         changeMode={changeMode}
         timeLeft={passageTimeLeft}
@@ -145,7 +186,7 @@ const App = () => {
         accuracy={accuracy}
       />
       {(testComplete && (
-        <TestComplete
+        <ResultScreen
           onGoAgain={onGoAgain}
           wpm={wpm}
           accuracy={accuracy}
